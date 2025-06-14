@@ -1,3 +1,41 @@
+
+function showToast(message, color = "#4caf50") {
+  const toast = document.createElement("div");
+  toast.innerText = message;
+  toast.style.position = "fixed";
+  toast.style.top = "20px";
+  toast.style.right = "20px";
+  toast.style.padding = "12px 20px";
+  toast.style.backgroundColor = color;
+  toast.style.color = "#fff";
+  toast.style.borderRadius = "8px";
+  toast.style.boxShadow = "0 2px 10px rgba(0,0,0,0.1)";
+  toast.style.zIndex = "9999";
+  toast.style.opacity = "0";
+  toast.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+  toast.style.transform = "translateY(-20px)";
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateY(0)";
+  }, 100);
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-20px)";
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
+}
+
+// Exemplo de uso (substitua com eventos reais em seu app):
+// showToast("Produto adicionado ao carrinho!");
+// showToast("Compra realizada com sucesso!", "#2196f3");
+// showToast("Login realizado com sucesso!", "#673ab7");
+// showToast("Registro concluído!", "#009688");
+// showToast("Conectado com sucesso!", "#ff9800");
+
+
 const products = [
   {
     id: 1,
