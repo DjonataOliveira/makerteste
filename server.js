@@ -1,6 +1,5 @@
-
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -14,48 +13,42 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Inicializar banco de dados
-const db = new sqlite3.Database('./database.db', (err) => {
-  if (err) return console.error(err.message);
-  console.log('🗃️  Banco de dados conectado.');
-});
+const db = new Database('./database.db');
 
 // Criar tabela de usuários se não existir
-db.run(\`
+db.prepare(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
     email TEXT UNIQUE,
     password TEXT
   )
-\`);
+`).run();
 
 // Rota de registro
 app.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
-  const hashed = await bcrypt.hash(password, 10);
-  db.run(
-    \`INSERT INTO users (name, email, password) VALUES (?, ?, ?)\`,
-    [name, email, hashed],
-    function (err) {
-      if (err) return res.status(400).json({ error: "Usuário já existe ou erro ao registrar." });
-      res.json({ message: "Registrado com sucesso!" });
-    }
-  );
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    db.prepare(`INSERT INTO users (name, email, password) VALUES (?, ?, ?)`)
+      .run(name, email, hashed);
+    res.json({ message: "Registrado com sucesso!" });
+  } catch (err) {
+    res.status(400).json({ error: "Usuário já existe ou erro ao registrar." });
+  }
 });
 
 // Rota de login
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  db.get(\`SELECT * FROM users WHERE email = ?\`, [email], async (err, user) => {
-    if (err || !user) return res.status(401).json({ error: "Email ou senha incorretos." });
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: "Email ou senha incorretos." });
+  const user = db.prepare(`SELECT * FROM users WHERE email = ?`).get(email);
+  if (!user) return res.status(401).json({ error: "Email ou senha incorretos." });
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) return res.status(401).json({ error: "Email ou senha incorretos." });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
-    res.json({ message: "Login bem-sucedido!", token });
-  });
+  const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
+  res.json({ message: "Login bem-sucedido!", token });
 });
-
 
 // Middleware para verificar token
 function verifyToken(req, res, next) {
@@ -72,16 +65,11 @@ function verifyToken(req, res, next) {
 
 // Rota protegida: perfil do usuário
 app.get('/profile', verifyToken, (req, res) => {
-  db.get("SELECT name, email FROM users WHERE id = ?", [req.user.id], (err, user) => {
-    if (err || !user) return res.sendStatus(404);
-    res.json(user);
-  });
+  const user = db.prepare("SELECT name, email FROM users WHERE id = ?").get(req.user.id);
+  if (!user) return res.sendStatus(404);
+  res.json(user);
 });
-
 
 // Inicializar servidor
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
-
+app.listen(PORT, () => console.log(`🚀 Servidor rodando em http://localhost:${PORT}`));
